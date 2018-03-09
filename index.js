@@ -1,3 +1,21 @@
+#!/usr/bin/env node
+/*
+Copyright (C) 2018  John Doty
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
+
 // @format
 // @flow
 const child_process = require("child_process");
@@ -96,7 +114,7 @@ class LockQueue {
 
 /** The thing what does rebuilding.
 
-So much more verbose compared to Gary's ruby version.
+So much more verbose compared to Gary's ruby version; I blame the asynchrony.
 */
 class Rebuilder {
   /*::

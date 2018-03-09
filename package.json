@@ -1,13 +1,13 @@
 {
   "name": "serviette",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A synchronous server and rebuilder of static content",
+  "repository": "github:DeCarabas/serviette",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "bin": "./index.js",
+  "scripts": {},
   "author": "john@d0ty.me",
-  "license": "ISC",
+  "license": "GPL-3.0",
   "devDependencies": {
     "flow-bin": "^0.66.0"
   }
