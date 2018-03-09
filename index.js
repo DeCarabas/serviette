@@ -303,17 +303,6 @@ function serveDirectory(absolute, relative, response) {
       `);
     }
   });
-
-  // res.content_type = "text/html"
-  // res.body = (
-  //   "<p><h3>Listing for /#{rel_path}</h3></p>\n" +
-  //   Dir.entries(local_abs_path).select do |child|
-  //     child != "."
-  //   end.sort.map do |child|
-  //     full_child_path_on_server = File.join("/", rel_path, child)
-  //     %{<a href="#{full_child_path_on_server}">#{child}</a><br>}
-  //   end.join("\n")
-  // )
 }
 
 function reportError(error, response) {
