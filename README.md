@@ -6,7 +6,15 @@ Before each request, it checks to see if any of the files have changed; if they 
 
 ## Usage
 
-To serve the current directory at http://localhost:8000 as a purely static site, run:
+```
+Usage: serviette [options] [--] [<cmd>...]
+
+Options:
+  --serve=DIR    The root directory to serve. [default: .]
+  -h --help      Show this help.
+```
+
+e.g. to serve the current directory at http://localhost:3000 as a purely static site, run:
 
 ```
 $ serviette
@@ -18,7 +26,11 @@ To have it run make when you refresh the page, use:
 $ serviette 'make'
 ```
 
-(There's more but I'm tired of writing right now and I don't want to copy all of ServeIt's documentation.)
+If all your stuff is built into the "dist" subdirectory, then you can limit the browsing to just that directory:
+
+```
+$ serviette --serve=dist make
+```
 
 ## Why?
 
