@@ -18,11 +18,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 // @format
 // @flow
+const doc = `
+Usage: serviette [options] [--] [<cmd>...]
+
+Options:
+  --serve=DIR    The root directory to serve. [default: .]
+  -h --help      Show this help.
+`;
 const child_process = require("child_process");
+const { docopt } = require("docopt");
 const fs = require("fs");
 const http = require("http");
 const path_ = require("path");
-const url = require("url");
 
 const port = 3000;
 const buildCommand = "npm run build";
@@ -342,33 +349,17 @@ class Server {
   }
 }
 
-let root = process.cwd();
-let command = null;
-for (let i = 2; i < process.argv.length; i++) {
-  if (process.argv[i] == "-s") {
-    i++;
-    if (i < process.argv.length) {
-      root = process.argv[i];
-    } else {
-      console.error("-s must be followed by a path");
-      process.exit(-1);
-    }
-  } else {
-    if (command) {
-      console.error(
-        "Please provide a single build command. (Did you forget quotes?)"
-      );
-      process.exit(-1);
-    }
-    command = process.argv[i];
-  }
-}
+process.title = "serviette";
+const parsed = docopt(doc);
 
-let server = new Server(root, command);
+const root = parsed["--serve"] || process.cwd();
+const command = parsed["<cmd>"].length > 0 ? parsed["<cmd>"].join(" ") : null;
+
+const server = new Server(root, command);
 const s = http.createServer((...args) => server.requestHandler(...args));
 s.listen(port, err => {
   if (err) {
     return console.error("something bad happened", err);
   }
-  console.log(`server is listening on ${port}`);
+  console.log(`server is listening on http://localhost:${port}`);
 });
