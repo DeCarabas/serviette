@@ -120,12 +120,14 @@ class Rebuilder {
   /*::
   disk_state: ({|path: string, mtime: number|})[];
   lock: LockQueue;
-  rebuild_command: string;
+  rebuild_command: ?string;
+  root: string;
   */
-  constructor(rebuild_command) {
+  constructor(root, rebuild_command) {
     this.disk_state = [];
     this.lock = new LockQueue();
     this.rebuild_command = rebuild_command;
+    this.root = root;
   }
 
   rebuildIfNecessary(callback) {
@@ -209,11 +211,17 @@ class Rebuilder {
         }
       });
     }
-    walk(".");
+    walk(this.root);
   }
 
   rebuild(callback) {
-    printStatus(`Running ${this.rebuild_command}`);
+    const command = this.rebuild_command;
+    if (!command) {
+      callback(null);
+      return;
+    }
+
+    printStatus(`Running ${command}`);
     const start = new Date();
     function printEnd() {
       const end = new Date();
@@ -221,7 +229,7 @@ class Rebuilder {
       printStatus(`Rebuilt in ${elapsed}s`);
     }
 
-    const child = child_process.exec(this.rebuild_command);
+    const child = child_process.exec(command);
     if (child.stdin) {
       child.stdin.end();
     }
@@ -257,21 +265,6 @@ class Rebuilder {
   }
 }
 
-let rebuilder = new Rebuilder("npm run build");
-
-let disk_state;
-function requestHandler(request, response) {
-  console.log("Handling:", request.url);
-  rebuilder.rebuildIfNecessary(err => {
-    if (err) {
-      reportError(err, response);
-    } else {
-      serveFile(request, response);
-    }
-    console.log("Done handling", request.url);
-  });
-}
-
 const mimeTypes = {
   html: "text/html",
   jpeg: "image/jpeg",
@@ -281,56 +274,101 @@ const mimeTypes = {
   css: "text/css"
 };
 
-function serveFile(request, response) {
-  //const uri = new url.URL(request.url).pathname;
-  const relative = request.url;
-  const absolute = path_.resolve(process.cwd(), relative.substr(1));
+class Server {
+  /*::
+  rebuilder: Rebuilder;
+  root: string;
+  */
+  constructor(root, build_command) {
+    this.root = root;
+    this.rebuilder = new Rebuilder(process.cwd(), build_command);
+  }
 
-  fs.stat(absolute, (err, stat) => {
-    if (err) {
-      reportError(err, response);
-    } else if (stat.isDirectory()) {
-      serveDirectory(absolute, relative, response);
+  requestHandler(request, response) {
+    console.log("Handling:", request.url);
+    this.rebuilder.rebuildIfNecessary(err => {
+      if (err) {
+        this.reportError(err, response);
+      } else {
+        this.serveFile(request, response);
+      }
+      console.log("Done handling", request.url);
+    });
+  }
+
+  serveFile(request, response) {
+    const relative = request.url;
+    const absolute = path_.resolve(this.root, relative.substr(1));
+
+    fs.stat(absolute, (err, stat) => {
+      if (err) {
+        this.reportError(err, response);
+      } else if (stat.isDirectory()) {
+        this.serveDirectory(absolute, relative, response);
+      } else {
+        const ext = path_.extname(absolute).substr(1);
+        const mimeType = mimeTypes[ext] || "text/html";
+        response.writeHead(200, {
+          "Content-Type": mimeType,
+          "Content-Length": stat.size.toString()
+        });
+
+        const fileStream = fs.createReadStream(absolute);
+        fileStream.pipe(response);
+      }
+    });
+  }
+
+  serveDirectory(absolute, relative, response) {
+    fs.readdir(absolute, (err, files) => {
+      if (err) {
+        this.reportError(err, response);
+      } else {
+        const prefix = relative == "/" ? "" : relative;
+        files.sort();
+        response.writeHead(200, { "Content-Type": "text/html" });
+        response.end(`
+          <p><h3>Listing for ${path_.basename(absolute)}</h3></p>
+          ${files
+            .map(f => `<a href='${prefix + "/" + f}'>${f}</a>`)
+            .join("<br/>\n")}
+        `);
+      }
+    });
+  }
+
+  reportError(error, response) {
+    response.end(`An error occurred: ${error.toString()}`);
+  }
+}
+
+let root = process.cwd();
+let command = null;
+for (let i = 2; i < process.argv.length; i++) {
+  if (process.argv[i] == "-s") {
+    i++;
+    if (i < process.argv.length) {
+      root = process.argv[i];
     } else {
-      const ext = path_.extname(absolute).substr(1);
-      const mimeType = mimeTypes[ext] || "text/html";
-      response.writeHead(200, {
-        "Content-Type": mimeType,
-        "Content-Length": stat.size.toString()
-      });
-
-      const fileStream = fs.createReadStream(absolute);
-      fileStream.pipe(response);
+      console.error("-s must be followed by a path");
+      process.exit(-1);
     }
-  });
-}
-
-function serveDirectory(absolute, relative, response) {
-  fs.readdir(absolute, (err, files) => {
-    if (err) {
-      reportError(err, response);
-    } else {
-      const prefix = relative == "/" ? "" : relative;
-      files.sort();
-      response.writeHead(200, { "Content-Type": "text/html" });
-      response.end(`
-        <p><h3>Listing for ${path_.basename(absolute)}</h3></p>
-        ${files
-          .map(f => `<a href='${prefix + "/" + f}'>${f}</a>`)
-          .join("<br/>\n")}
-      `);
+  } else {
+    if (command) {
+      console.error(
+        "Please provide a single build command. (Did you forget quotes?)"
+      );
+      process.exit(-1);
     }
-  });
+    command = process.argv[i];
+  }
 }
 
-function reportError(error, response) {
-  response.end(`An error occurred: ${error.toString()}`);
-}
-
-const server = http.createServer(requestHandler);
-server.listen(port, err => {
+let server = new Server(root, command);
+const s = http.createServer((...args) => server.requestHandler(...args));
+s.listen(port, err => {
   if (err) {
-    return console.log("something bad happened", err);
+    return console.error("something bad happened", err);
   }
   console.log(`server is listening on ${port}`);
 });
